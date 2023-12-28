@@ -7,7 +7,7 @@ use crate::code::{Code, Instruction, OperationCode};
 #[derive(PartialEq)]
 pub enum TraceType{
     No,
-    TraceMemory,
+    TraceStack,
 }
 
 pub struct Vsm {
@@ -16,6 +16,7 @@ pub struct Vsm {
     global_top_address: usize,
     frame_top_address: usize,
     stack: Vec<i32>,
+    stack_pointer: i32,
     base_register: Vec<i32>,
     trace_type : TraceType
 }
@@ -28,6 +29,7 @@ impl Vsm {
             global_top_address: 0,
             frame_top_address: 0,
             stack: Vec::new(),
+            stack_pointer: -1,
             base_register: Vec::new(),
             trace_type : trace_type
         }
@@ -84,7 +86,7 @@ impl Vsm {
                 }
             }
             
-            if self.trace_type == TraceType::TraceMemory {
+            if self.trace_type == TraceType::TraceStack {
                 self.display_config(instruction);
                 let stdin = io::stdin();
                 let mut buffer = String::new();

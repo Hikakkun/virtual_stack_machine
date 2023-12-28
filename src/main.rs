@@ -12,7 +12,7 @@ fn main() -> io::Result<()> {
 
     let vsm_file = &args[1];
     let trace_type = if args.iter().any(|arg| arg == "-t") {
-        TraceType::TraceMemory
+        TraceType::TraceStack
     }else {
         TraceType::No
     };
