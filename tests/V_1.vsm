@@ -1,31 +1,4 @@
 LC 1
 LC 2
 ADD
-//1+2
-
-LC 3
-
-LC 18
-
-LC 4
-LC 9
-ADD
-//4+9
-
-DIV
-//18 / 13
-
-SUB
-//3 -1
-
-MUL
-//3 * 2
-
-PUTI
-//print
-
-LC 10 
-PUTC
-// /n
-
 EXIT

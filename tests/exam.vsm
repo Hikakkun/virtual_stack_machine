@@ -1,0 +1,21 @@
+ISP 1 //(exam=>0 番地)
+LA 0 0 //exam=getint();
+GETI 
+SI 
+LA 0 0 //exam=exam+20;
+LV 0 0 
+LC 20 
+ADD 
+SI 
+LC 100 //(100<exam)
+LV 0 0 
+LT 
+BZ 3 //条件不成立なら 16 へ分岐
+LA 0 0 //exam = 100;
+LC 100 
+SI 
+LV 0 0 // putint(exam);
+PUTI 
+LC 10 //putchar(’\n’);
+PUTC 
+EXIT

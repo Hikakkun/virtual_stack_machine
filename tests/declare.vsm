@@ -1,0 +1,9 @@
+ ISP 328
+ LC 328
+ SB 1
+ CALL 5
+ EXIT
+ ISP 3
+ RET
+ ISP 309
+ RET

@@ -1,0 +1,27 @@
+ISP 2 //変数領域の確保 (s=>0, i=>1)
+LA 0 0 //s=0;
+LC 0  
+SI  
+LA 0 1 //i=1;
+LC 1  
+SI  
+LV 0 1 //i<=100
+LC 100
+LE  
+BZ 11 //条件不成立なら 22 番地へ分岐
+LA 0 0 //s=s+i;
+LV 0 0  
+LV 0 1  
+ADD  
+SI  
+LA 0 1 //i=i+1;
+LV 0 1  
+LC 1  
+ADD  
+SI  
+B -15 //7 番地へ分岐
+LV 0 0 //putint(s);
+PUTI  
+LC 10 //putchar(’\n’);
+PUTC  
+EXIT

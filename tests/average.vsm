@@ -1,0 +1,19 @@
+ISP 3 //変数領域の確保 (&a=0, &b=1, &c=2)
+LA 0 0 //a=getint();
+GETI 
+SI 
+LA 0 1 //b=getint();
+GETI 
+SI 
+LA 0 2 //c=(a+b)/2;
+LV 0 0 
+LV 0 1 
+ADD 
+LC 2 
+DIV 
+SI 
+LV 0 2 //putint(c);
+PUTI 
+LC 10 //putchar(’\n’);
+PUTC 
+EXIT

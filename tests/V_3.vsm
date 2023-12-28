@@ -1,0 +1,58 @@
+ISP 2
+//変数領域の確保 (&i=0, &m=1)
+
+LA 0 0
+GETI
+SI
+//i = getint()
+
+LA 0 1
+// m のアドレスのロード
+
+LV 0 0
+LC 10
+MOD
+// i % 10%
+
+SI
+// m = i % 10
+
+LV 0 1
+LC 5
+LT
+//if (m < 5)
+
+BZ 6
+//if (m < 5) が不成立なら 6命令飛ばす
+
+    LA 0 0
+    LV 0 0
+    LV 0 1
+    SUB
+    SI
+    // i = i - m
+
+    B 7
+    //if(m<5)の処理が終了したので else の処理を飛ばす (7命令)
+
+        //ここからelseの処理
+        LA 0 0
+        LV 0 0
+        LV 0 1
+        SUB
+        LC 10
+        ADD
+        SI
+        // i = i - m + 10
+        //ここまでelseの処理
+
+
+LV 0 0 
+PUTI 
+//print(i)
+
+LC 10 
+PUTC
+// /n
+
+EXIT
