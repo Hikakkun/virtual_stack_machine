@@ -15,7 +15,7 @@ pub struct Vsm {
     program_counter: usize,
     global_top_address: usize,
     frame_top_address: usize,
-    memory: Vec<i32>,
+    stack: Vec<i32>,
     base_register: Vec<i32>,
     trace_type : TraceType
 }
@@ -27,7 +27,7 @@ impl Vsm {
             program_counter: 0,
             global_top_address: 0,
             frame_top_address: 0,
-            memory: Vec::new(),
+            stack: Vec::new(),
             base_register: Vec::new(),
             trace_type : trace_type
         }
@@ -40,8 +40,8 @@ impl Vsm {
 
     fn display_config(&self, instruction : Instruction){
         println!("{:02}:{}", self.program_counter, instruction.to_string());
-        self.memory.iter().rev().enumerate().for_each(|(rev_index, value)|{
-            let index = self.memory.len() - rev_index-1;
+        self.stack.iter().rev().enumerate().for_each(|(rev_index, value)|{
+            let index = self.stack.len() - rev_index-1;
             let b0 = if self.global_top_address == index {
                 " <-B0"
             }else{
@@ -94,8 +94,8 @@ impl Vsm {
         Ok(())
     }
 
-    fn memory_pop(&mut self) -> Result<i32, String> {
-        if let Some(value) = self.memory.pop() {
+    fn stack_pop(&mut self) -> Result<i32, String> {
+        if let Some(value) = self.stack.pop() {
             Ok(value)
         }else{
             Err("Cannot pop from an empty stack".to_string())
@@ -116,45 +116,45 @@ impl Vsm {
             OperationCode::Isp => {
                 std::iter::repeat(0)
                 .take(instruction.operand[0].unwrap() as usize)
-                .for_each(|_| self.memory.push(i32::default()));
+                .for_each(|_| self.stack.push(i32::default()));
             },
             OperationCode::La => {
                 let base_register =  self.get_base_register(instruction.operand[0].unwrap())? as i32;
                 let address = instruction.operand[1].unwrap();
-                self.memory.push(base_register+address);
+                self.stack.push(base_register+address);
             },
 
             OperationCode::Lv => {
                 let base_register =  self.get_base_register(instruction.operand[0].unwrap())?;
                 let address = instruction.operand[1].unwrap() as usize;
-                self.memory.push(self.memory[base_register+address]); 
+                self.stack.push(self.stack[base_register+address]); 
             }
             OperationCode::Lc => {
-                self.memory.push(instruction.operand[0].unwrap());
+                self.stack.push(instruction.operand[0].unwrap());
             },
             OperationCode::Li => {
-                let address = self.memory.last().unwrap();
-                let value = self.memory[*address as usize];
-                self.memory_pop()?;
-                self.memory.push(value);
+                let address = self.stack.last().unwrap();
+                let value = self.stack[*address as usize];
+                self.stack_pop()?;
+                self.stack.push(value);
             },
             OperationCode::Dup => {
-                self.memory.push(*self.memory.last().unwrap());
+                self.stack.push(*self.stack.last().unwrap());
             },
             OperationCode::Si => {
-                let value = self.memory_pop()?;
-                let address = self.memory_pop()?;
-                self.memory[address as usize] = value;        
+                let value = self.stack_pop()?;
+                let address = self.stack_pop()?;
+                self.stack[address as usize] = value;        
             },
             OperationCode::Sv => {
                 let base_register =  self.get_base_register(instruction.operand[0].unwrap())?;
                 let address = instruction.operand[1].unwrap() as usize;
-                self.memory[base_register+address] = self.memory_pop()?;
+                self.stack[base_register+address] = self.stack_pop()?;
             },
             OperationCode::Sb => {
                 match instruction.operand[0].unwrap() {
-                    0 => self.global_top_address = self.memory_pop()? as usize,
-                    1 => self.frame_top_address = self.memory_pop()? as usize,
+                    0 => self.global_top_address = self.stack_pop()? as usize,
+                    1 => self.frame_top_address = self.stack_pop()? as usize,
                     _ => {
                         return Err(format!("invalid instruction '{}'", instruction.to_string()));
                     }
@@ -164,24 +164,24 @@ impl Vsm {
                 self.program_counter = ((self.program_counter as i32) + instruction.operand[0].unwrap()) as usize;
             },
             OperationCode::Bz => {
-                let value = self.memory_pop()?;
+                let value = self.stack_pop()?;
                 if value == 0 {
                     self.program_counter += instruction.operand[0].unwrap() as usize;
                 }
             },
             OperationCode::Call => {
-                self.memory.push(0);
-                self.memory.push(self.frame_top_address as i32);
-                self.memory.push(self.program_counter as i32);
-                self.frame_top_address = self.memory.len()  -3 + 1;
+                self.stack.push(0);
+                self.stack.push(self.frame_top_address as i32);
+                self.stack.push(self.program_counter as i32);
+                self.frame_top_address = self.stack.len()  -3 + 1;
                 self.program_counter = instruction.operand[0].unwrap() as usize;
             },
             OperationCode::Ret => {
-                while self.memory.len()-1 -2 != self.frame_top_address {
-                    self.memory_pop()?;
+                while self.stack.len()-1 -2 != self.frame_top_address {
+                    self.stack_pop()?;
                 }
-                self.program_counter = self.memory_pop()? as usize;
-                self.frame_top_address = self.memory_pop()? as usize;
+                self.program_counter = self.stack_pop()? as usize;
+                self.frame_top_address = self.stack_pop()? as usize;
             },
 
             OperationCode::Getc => {
@@ -191,7 +191,7 @@ impl Vsm {
 
                 let input_char = buffer[0] as char;
 
-                self.memory.push(input_char as i32);
+                self.stack.push(input_char as i32);
             },
             OperationCode::Geti => {
                 let stdin = io::stdin();
@@ -200,81 +200,81 @@ impl Vsm {
                 let input_number = buffer.trim().parse::<i32>();
 
                 match input_number {
-                    Ok(number) => self.memory.push(number),
+                    Ok(number) => self.stack.push(number),
                     Err(err) => return Err(err.to_string())
                 }
             },
             OperationCode::Putc => {
-                let value =  self.memory_pop()?;
+                let value =  self.stack_pop()?;
                 print!("{}", std::char::from_u32(value as u32).unwrap());
             },
             OperationCode::Puti => {
-                print!("{}", self.memory_pop()?);
+                print!("{}", self.stack_pop()?);
             },
             OperationCode::Add => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push(bottom_value+top_value);
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push(bottom_value+top_value);
                 
             },
 
             OperationCode::Sub => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push(bottom_value-top_value);
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push(bottom_value-top_value);
             },
             OperationCode::Mul => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push(bottom_value*top_value);
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push(bottom_value*top_value);
             },
 
             OperationCode::Div => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push(bottom_value/top_value);
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push(bottom_value/top_value);
             },
             OperationCode::Mod => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push(bottom_value%top_value);                
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push(bottom_value%top_value);                
             },
             OperationCode::Inv => {
-                let value = self.memory_pop()?;
-                self.memory.push(-value);
+                let value = self.stack_pop()?;
+                self.stack.push(-value);
             },
             OperationCode::Eq => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push((bottom_value==top_value) as i32);                       
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push((bottom_value==top_value) as i32);                       
             },
             OperationCode::Ne => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push((bottom_value!=top_value) as i32);                   
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push((bottom_value!=top_value) as i32);                   
             },
             OperationCode::Gt => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push((bottom_value>top_value) as i32);                   
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push((bottom_value>top_value) as i32);                   
             },
             OperationCode::Lt => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push((bottom_value<top_value) as i32);                   
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push((bottom_value<top_value) as i32);                   
             },
             OperationCode::Ge => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push((bottom_value>=top_value) as i32);                   
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push((bottom_value>=top_value) as i32);                   
             },            
             OperationCode::Le => {
-                let top_value = self.memory_pop()?;
-                let bottom_value = self.memory_pop()?;
-                self.memory.push((bottom_value<=top_value) as i32);                   
+                let top_value = self.stack_pop()?;
+                let bottom_value = self.stack_pop()?;
+                self.stack.push((bottom_value<=top_value) as i32);                   
             },  
             OperationCode::Exit => {
-                return_code = Some(self.memory.pop().unwrap_or(0));
+                return_code = Some(self.stack.pop().unwrap_or(0));
             }
         }
 
