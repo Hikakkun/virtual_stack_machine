@@ -116,7 +116,7 @@ impl FromStr for OperationCode {
     }
 }
 
-struct Instruction {
+pub struct Instruction {
     operation_code: OperationCode,
     operand: [Option<i32>; 2],
 }
