@@ -17,7 +17,6 @@ pub struct Vsm {
     frame_top_address: usize,
     stack: Vec<i32>,
     stack_pointer: i32,
-    base_register: Vec<i32>,
     trace_type : TraceType
 }
 
@@ -30,7 +29,6 @@ impl Vsm {
             frame_top_address: 0,
             stack: Vec::new(),
             stack_pointer: -1,
-            base_register: Vec::new(),
             trace_type : trace_type
         }
     }
@@ -56,7 +54,13 @@ impl Vsm {
                 ""
             };
 
-            println!("M[{:03}] {:04}{}{}", index, value, b0, b1);
+            let sp = if self.stack_pointer == index as i32 {
+                " SP-> "
+            }else{
+                "      "
+            };
+
+            println!("{} Stack[{: >3}] {: >4}{}{}", sp, index, value, b0, b1);
         });  
         println!("\n");
     }
