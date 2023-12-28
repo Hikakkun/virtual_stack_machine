@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{self, BufRead, Write};
 use std::str::FromStr;
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy)]
 pub enum OperationCode {
     Isp,
     La,
@@ -116,9 +116,10 @@ impl FromStr for OperationCode {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Instruction {
-    operation_code: OperationCode,
-    operand: [Option<i32>; 2],
+    pub operation_code: OperationCode,
+    pub operand: [Option<i32>; 2],
 }
 
 // MyStructにDisplayトレイトを実装
@@ -144,6 +145,13 @@ pub struct Code {
 }
 
 impl Code {
+
+    pub fn get_instruction(&self, program_counter : usize) -> Instruction {
+        self.instruction_vec[program_counter].clone()
+    }
+    pub fn len(&self) -> usize {
+        self.instruction_vec.len()
+    }
     pub fn new() -> Code {
         let operand_size_map_init = [
             (OperationCode::Isp, 1),
@@ -222,7 +230,12 @@ impl Code {
                 if let Some(operand_size) = self.operand_size_map.get(&operation_code) {
                     if operand_size + 1 != command_parse.len() {
                         eprintln!("command '{}'", command_remove_comments);
-                        eprintln!("'{}' has '{}' arguments but '{}' input arguments", operation_code.to_string(), operand_size, command_parse.len()-1);
+                        eprintln!(
+                            "'{}' has '{}' arguments but '{}' input arguments",
+                            operation_code.to_string(),
+                            operand_size,
+                            command_parse.len() - 1
+                        );
                         return Err(io::Error::new(
                             io::ErrorKind::InvalidData,
                             "Invalid OperationCode",
