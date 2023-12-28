@@ -1,12 +1,12 @@
 use std::io;
-use virtual_stack_machine::vsm::*;
+use virtual_stack_machine::code::*;
+
 fn main() -> io::Result<()> {
+    let mut code = Code::new();
 
-    let mut vsm = Vsm::new();
+    code.read("/home/hikaru/prog/mini_c/virtual_stack_machine/tests/full.vsm")?;
 
-    vsm.read_code("/home/hikaru/prog/mini_c/virtual_stack_machine/V_1.vsm")?;
-
-    vsm.print_code();
+    code.print();
 
     Ok(())
 }
