@@ -1,6 +1,6 @@
 use core::num;
 use std::{io, result, ffi::IntoStringError};
-use std::io::{BufRead, Read};
+use std::io::{BufRead, Read, SeekFrom};
 use std::io::{ Write};
 use crate::code::{Code, Instruction, OperationCode};
 
@@ -170,10 +170,10 @@ impl Vsm {
                 }
             },
             OperationCode::Call => {
-                let top_address = self.memory.len()-1;
-                self.memory[top_address] = self.program_counter as i32;
-                self.memory[top_address-1] = self.frame_top_address as i32;
-                self.frame_top_address = top_address -3 + 1;
+                self.memory.push(0);
+                self.memory.push(self.frame_top_address as i32);
+                self.memory.push(self.program_counter as i32);
+                self.frame_top_address = self.memory.len()  -3 + 1;
                 self.program_counter = instruction.operand[0].unwrap() as usize;
             },
             OperationCode::Ret => {
