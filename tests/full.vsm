@@ -1,0 +1,268 @@
+LC 1
+LC 2
+ADD
+//1+2
+
+LC 3
+
+LC 18
+
+LC 4
+LC 9
+ADD
+//4+9
+
+DIV
+//18 / 13
+
+SUB
+//3 -1
+
+MUL
+//3 * 2
+
+PUTI
+//print
+
+LC 10 
+PUTC
+// /n
+
+EXIT
+
+ISP 3
+//変数領域の確保 (&a=0, &b=1, &c=2)
+
+LA 0 0
+LC 3
+SI
+// a = 3
+
+LA 0 1
+LC 4
+SI
+//b = 4
+
+LA 0 2 
+// c のアドレスのロード
+
+LV 0 0
+LV 0 0
+MUL
+// a*a
+
+LV 0 1
+LV 0 1
+MUL
+// b*b
+
+ADD
+//a*a + b*b
+
+SI
+//c = a*a + b*b
+
+LV 0 2 
+PUTI 
+//print(c)
+
+LC 10 
+PUTC
+// /n
+
+EXIT
+
+ISP 2
+//変数領域の確保 (&i=0, &m=1)
+
+LA 0 0
+GETI
+SI
+//i = getint()
+
+LA 0 1
+// m のアドレスのロード
+
+LV 0 0
+LC 10
+MOD
+// i % 10%
+
+SI
+// m = i % 10
+
+LV 0 1
+LC 5
+LT
+//if (m < 5)
+
+BZ 6
+//if (m < 5) が不成立なら 6命令飛ばす
+
+    LA 0 0
+    LV 0 0
+    LV 0 1
+    SUB
+    SI
+    // i = i - m
+
+    B 7
+    //if(m<5)の処理が終了したので else の処理を飛ばす (7命令)
+
+        //ここからelseの処理
+        LA 0 0
+        LV 0 0
+        LV 0 1
+        SUB
+        LC 10
+        ADD
+        SI
+        // i = i - m + 10
+        //ここまでelseの処理
+
+
+LV 0 0 
+PUTI 
+//print(i)
+
+LC 10 
+PUTC
+// /n
+
+EXIT
+
+
+ISP 3
+//変数領域の確保 (&n=0, &f=1, &i = 2)
+
+LC 63
+PUTC 
+//print('?') : ? のコードは 63 
+
+LA 0 0
+GETI
+SI
+//n=getint()
+
+LA 0 1
+LC 1
+SI
+//f = i
+
+LA 0 2
+LC 1
+SI
+// i = 1
+
+LV 0 2
+LV 0 0
+LE
+//while(i <= n) 
+BZ 11
+//成立しないのならば 11命令飛ばす
+
+    LA 0 1
+    LV 0 1
+    LV 0 2
+    MUL
+    SI
+    // f = f * i
+
+    LA 0 2
+    LV 0 2
+    LC 1
+    ADD
+    SI
+    // i = i + 1
+
+    B -15 
+    // while(i <= n) まで戻る
+
+LV 0 1
+PUTI 
+// print(f)
+
+LC 10 
+PUTC
+// /n
+
+EXIT
+
+ISP 1
+LC 1
+SB 1
+CALL 32
+EXIT
+    ISP 6 //round(int x) 定義
+    LA 1 4
+    LV 1 3
+    LC 10
+    MOD
+    SI //m = x % 10
+    LV 1 4
+    LV 0 0
+    LT // m < K
+    BZ 6
+        LA 1 5
+        LV 1 3
+        LV 1 4
+        SUB 
+        SI // y = x - m
+        B 7
+            LA 1 5
+            LV 1 3
+            LV 1 4
+            SUB
+            LC 10
+            ADD
+            SI
+    LA 1 0
+    LV 1 5
+    SI // return y
+    RET //関数終了
+ISP 5 //main関数
+
+LA 0 0
+LC 7
+SI // K = 7
+
+LA 1 3
+LC 27
+SI // q = 27
+
+LA 1 4
+ISP 3   //ここから
+LV 1 3
+ISP -4
+CALL 5  //ここまで関数呼び出し
+SI // a = round(q)
+
+LV 1 4
+PUTI
+
+LC 10 
+PUTC
+
+LA 1 3
+LV 1 3
+LC 2
+MUL
+SI // q = q * 2
+
+LA 1 4
+ISP 3   //ここから
+LV 1 3
+ISP -4
+CALL 5  //ここまで関数呼び出し
+SI // a = round(q)
+
+LV 1 4
+PUTI
+
+LC 10 
+PUTC
+
+LA 1 0 
+LC 0
+SI // return 0
+RET //関数終了
