@@ -242,18 +242,22 @@ impl Code {
                         ));
                     }
 
-                    let operand0 = if command_parse.len() > 1 {
-                        command_parse[1].parse::<i32>().map(Some)
-                    } else {
-                        Ok(None)
-                    };
-                    let operand1 = if command_parse.len() > 2 {
-                        command_parse[2].parse::<i32>().map(Some)
-                    } else {
-                        Ok(None)
-                    };
+                    fn parse_operand(command_parse: &[&str], index: usize) -> Result<Option<i32>, std::num::ParseIntError> {
+                        let inner_parse_operand = |value: &str| -> Result<Option<i32>, std::num::ParseIntError> {
+                            value.parse::<i32>().map(Some)
+                        };
+                    
+                        if command_parse.len() > index {
+                            inner_parse_operand(command_parse[index])
+                        } else {
+                            Ok(None)
+                        }
+                    }
 
-                    self.append_instruction(operation_code, operand0.unwrap(), operand1.unwrap());
+                    let operand0 = parse_operand(&command_parse, 1).unwrap();
+                    let operand1 = parse_operand(&command_parse, 2).unwrap();
+
+                    self.append_instruction(operation_code, operand0, operand1);
                 } else {
                     eprintln!(
                         "OperationCode operand_size is not defined: {}",
