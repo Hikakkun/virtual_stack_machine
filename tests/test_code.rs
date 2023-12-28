@@ -1,22 +1,21 @@
 #[cfg(test)]
-mod tests{
-    use virtual_stack_machine::code::Code;
+mod tests {
     use std::fs;
     use std::fs::File;
-    use std::path::Path;
     use std::io::{self, Write};
-
+    use std::path::Path;
+    use virtual_stack_machine::code::Code;
 
     fn write_to_file_for_test(file_path: &str, content: &str) -> io::Result<()> {
         let path = Path::new(file_path);
         let mut file = File::create(path)?;
-    
+
         file.write_all(content.as_bytes())?;
         Ok(())
     }
-    
+
     #[test]
-    fn test_read_code_ok(){
+    fn test_read_code_ok() {
         let file_path = "tests/read_code_ok.txt";
         let file_contents = r#"
         LC 1
@@ -50,11 +49,11 @@ mod tests{
         let mut code = Code::new();
         assert!(code.read(file_path).is_ok());
 
-        fs::remove_file(file_path).unwrap(); 
+        fs::remove_file(file_path).unwrap();
     }
 
     #[test]
-    fn test_read_code_ng(){
+    fn test_read_code_ng() {
         let file_path = "tests/read_code_ng.txt";
         let file_contents = r#"
         LC
@@ -64,11 +63,11 @@ mod tests{
         let mut code = Code::new();
         assert!(code.read(file_path).is_err());
 
-        fs::remove_file(file_path).unwrap(); 
+        fs::remove_file(file_path).unwrap();
     }
 
     #[test]
-    fn test_read_code_comment(){
+    fn test_read_code_comment() {
         let file_path = "tests/read_code_comment.txt";
         let file_contents = r#"
         ISP 3
@@ -118,6 +117,6 @@ mod tests{
         let mut code = Code::new();
         assert!(code.read(file_path).is_ok());
 
-        fs::remove_file(file_path).unwrap(); 
+        fs::remove_file(file_path).unwrap();
     }
 }
