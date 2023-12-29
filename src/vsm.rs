@@ -16,7 +16,8 @@ pub struct Vsm {
     global_top_address: usize,
     frame_top_address: usize,
     stack: Vec<i32>,
-    stack_pointer: i32,
+    stack_pointer: Option<usize>,
+    max_stack_pointer: usize,
     trace_type : TraceType
 }
 
@@ -27,10 +28,15 @@ impl Vsm {
             program_counter: 0,
             global_top_address: 0,
             frame_top_address: 0,
-            stack: Vec::new(),
-            stack_pointer: -1,
+            stack: vec![i32::default(); 1024],
+            stack_pointer: None,
+            max_stack_pointer: 0,
             trace_type : trace_type
         }
+    }
+
+    pub fn allocation_stack(&mut self, size: usize){
+        self.stack = vec![i32::default(); size];
     }
 
     pub fn read_code(&mut self, file_path: &str)-> io::Result<()>{
@@ -39,29 +45,32 @@ impl Vsm {
     }
 
     fn display_config(&self, instruction : Instruction){
-        println!("{:02}:{}", self.program_counter, instruction.to_string());
-        self.stack.iter().rev().enumerate().for_each(|(rev_index, value)|{
+
+        let dsp = match self.stack_pointer {
+            Some(sp) => format!("SP = {}", sp),
+            _ => format!("SP = None"),
+        };
+        println!("{:02}:{} {}", self.program_counter, instruction.to_string(), dsp);
+
+        let _ = &self.stack[0..=self.max_stack_pointer].iter().rev().enumerate().for_each(|(rev_index, value)|{
             let index = self.stack.len() - rev_index-1;
-            let b0 = if self.global_top_address == index {
-                " <-B0"
-            }else{
-                ""
+            let b0 = match self.global_top_address == index {
+                true => " <-B0",
+                false => "",
+            };
+            let b1 = match self.frame_top_address == index {
+                true => " <-B1",
+                false => "",
+            };
+            
+            let sp = match self.stack_pointer {
+                Some(sp) if sp == index => " SP-> ",
+                _ => "      ",
             };
 
-            let b1 = if self.frame_top_address == index {
-                " <-B1"
-            }else{
-                ""
-            };
+            println!("{} Stack[{: >3}] {: >4}{}{}", sp, index, *value, b0, b1);
+        });
 
-            let sp = if self.stack_pointer == index as i32 {
-                " SP-> "
-            }else{
-                "      "
-            };
-
-            println!("{} Stack[{: >3}] {: >4}{}{}", sp, index, value, b0, b1);
-        });  
         println!("\n");
     }
     pub fn exec_code(&mut self) -> Result<(), String>{
@@ -100,8 +109,42 @@ impl Vsm {
         Ok(())
     }
 
+    fn stack_read<T>(&mut self, address : T)
+    where
+        T: Into<Option<usize>> + Into<Option<i32>> + Into<usize> + Into<i32>,
+    {
+        let usize_address : usize = address.into();
+        return self.stack[usize_address];
+    }
+
+    fn stack_write(&mut self){
+
+    }
+    fn stack_pointer_increment(&mut self){
+        self.stack_pointer = match self.stack_pointer {
+            Some(sp) => Some(sp + 1),
+            None => Some(0),
+        };
+    }
+    fn stack_push<T: Into<Option<i32>>>(&mut self, value: T) {
+        if let Some(val) = value.into().map(|v| v.into()) {
+            self.stack.push(val);
+    
+            self.stack_pointer_increment();
+        }
+    }
+
+    fn stack_pointer_decrement(&mut self) -> Result<(), String>  {
+        self.stack_pointer = match  self.stack_pointer {
+            Some(0) => None,
+            Some(sp) => Some(sp-1),
+            None => return Err("Cannot pop from an empty stack".to_string())
+        };
+        Ok(())
+    }
     fn stack_pop(&mut self) -> Result<i32, String> {
         if let Some(value) = self.stack.pop() {
+            self.stack_pointer_decrement()?;
             Ok(value)
         }else{
             Err("Cannot pop from an empty stack".to_string())
@@ -120,37 +163,60 @@ impl Vsm {
 
         match instruction.operation_code {
             OperationCode::Isp => {
-                std::iter::repeat(0)
-                .take(instruction.operand[0].unwrap() as usize)
-                .for_each(|_| self.stack.push(i32::default()));
+                let prev_sp = match self.stack_pointer {
+                    Some(sp) => sp as i32,
+                    None => -1,
+                };
+
+                while prev_sp + instruction.operand[0].unwrap() == ((self.stack.len() as i32) -1) {
+                    self.stack_push(i32::default());
+                }
+
+                self.stack_pointer_decrement()?;
             },
             OperationCode::La => {
                 let base_register =  self.get_base_register(instruction.operand[0].unwrap())? as i32;
                 let address = instruction.operand[1].unwrap();
-                self.stack.push(base_register+address);
+                self.stack_push(base_register+address);
             },
 
             OperationCode::Lv => {
                 let base_register =  self.get_base_register(instruction.operand[0].unwrap())?;
                 let address = instruction.operand[1].unwrap() as usize;
-                self.stack.push(self.stack[base_register+address]); 
+                self.stack_push(self.stack[base_register+address]); 
             }
             OperationCode::Lc => {
-                self.stack.push(instruction.operand[0].unwrap());
+                self.stack_push(instruction.operand[0]);
             },
             OperationCode::Li => {
-                let address = self.stack.last().unwrap();
-                let value = self.stack[*address as usize];
-                self.stack_pop()?;
-                self.stack.push(value);
+
+                match self.stack_pointer {
+                    Some(stack_pointer) => {
+                        self.stack[stack_pointer] = self.stack[self.stack[stack_pointer] as usize];
+                    },
+                    _ => {
+                        return Err(format!("stack pointer is None"));
+                    }
+                }
+                
             },
             OperationCode::Dup => {
-                self.stack.push(*self.stack.last().unwrap());
+                let val = match self.stack_pointer {
+                    Some(stack_pointer) => {
+                        self.stack[stack_pointer]
+                    },
+                    _ => {
+                        return Err(format!("stack pointer is None"));
+                    }
+                };
+
+
+                self.stack_push(val);
             },
             OperationCode::Si => {
                 let value = self.stack_pop()?;
                 let address = self.stack_pop()?;
-                self.stack[address as usize] = value;        
+                self.stack[address as usize] = value;      
             },
             OperationCode::Sv => {
                 let base_register =  self.get_base_register(instruction.operand[0].unwrap())?;
@@ -172,22 +238,25 @@ impl Vsm {
             OperationCode::Bz => {
                 let value = self.stack_pop()?;
                 if value == 0 {
-                    self.program_counter += instruction.operand[0].unwrap() as usize;
+                    self.program_counter = ((self.program_counter as i32) + instruction.operand[0].unwrap()) as usize;
                 }
             },
             OperationCode::Call => {
+                let prev_stak_pointer = self.stack_pointer;
                 self.stack.push(0);
-                self.stack.push(self.frame_top_address as i32);
-                self.stack.push(self.program_counter as i32);
-                self.frame_top_address = self.stack.len()  -3 + 1;
+                self.stack_push(self.frame_top_address as i32);
+                self.stack_push(self.program_counter as i32);
+              
+                self.frame_top_address = match self.stack_pointer {
+                    Some(stack_pointer) => stack_pointer + 1,
+                    None => 0,
+                };
                 self.program_counter = instruction.operand[0].unwrap() as usize;
             },
             OperationCode::Ret => {
-                while self.stack.len()-1 -2 != self.frame_top_address {
-                    self.stack_pop()?;
-                }
-                self.program_counter = self.stack_pop()? as usize;
-                self.frame_top_address = self.stack_pop()? as usize;
+                self.stack_pointer = Some(self.frame_top_address);
+                self.frame_top_address = self.stack[self.stack_pointer.unwrap()+1] as usize;
+                self.program_counter = self.stack[self.stack_pointer.unwrap()+2] as usize;
             },
 
             OperationCode::Getc => {
@@ -197,7 +266,7 @@ impl Vsm {
 
                 let input_char = buffer[0] as char;
 
-                self.stack.push(input_char as i32);
+                self.stack_push(input_char as i32);
             },
             OperationCode::Geti => {
                 let stdin = io::stdin();
@@ -206,7 +275,7 @@ impl Vsm {
                 let input_number = buffer.trim().parse::<i32>();
 
                 match input_number {
-                    Ok(number) => self.stack.push(number),
+                    Ok(number) => self.stack_push(number),
                     Err(err) => return Err(err.to_string())
                 }
             },
@@ -220,67 +289,69 @@ impl Vsm {
             OperationCode::Add => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push(bottom_value+top_value);
-                
+                self.stack_push(bottom_value+top_value);                
             },
 
             OperationCode::Sub => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push(bottom_value-top_value);
+                self.stack_push(bottom_value-top_value); 
             },
             OperationCode::Mul => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push(bottom_value*top_value);
+                self.stack_push(bottom_value*top_value); 
             },
 
             OperationCode::Div => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push(bottom_value/top_value);
+                self.stack_push(bottom_value/top_value); 
             },
             OperationCode::Mod => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push(bottom_value%top_value);                
+                self.stack_push(bottom_value%top_value);            
             },
             OperationCode::Inv => {
                 let value = self.stack_pop()?;
-                self.stack.push(-value);
+                self.stack_push(value);
             },
             OperationCode::Eq => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push((bottom_value==top_value) as i32);                       
+                self.stack_push((bottom_value==top_value) as i32);                 
             },
             OperationCode::Ne => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push((bottom_value!=top_value) as i32);                   
+                self.stack_push((bottom_value!=top_value) as i32);                    
             },
             OperationCode::Gt => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push((bottom_value>top_value) as i32);                   
+                self.stack_push((bottom_value>top_value) as i32);                
             },
             OperationCode::Lt => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push((bottom_value<top_value) as i32);                   
+                self.stack_push((bottom_value<top_value) as i32);                  
             },
             OperationCode::Ge => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push((bottom_value>=top_value) as i32);                   
+                self.stack_push((bottom_value>=top_value) as i32);                    
             },            
             OperationCode::Le => {
                 let top_value = self.stack_pop()?;
                 let bottom_value = self.stack_pop()?;
-                self.stack.push((bottom_value<=top_value) as i32);                   
+                self.stack_push((bottom_value<=top_value) as i32);                  
             },  
             OperationCode::Exit => {
-                return_code = Some(self.stack.pop().unwrap_or(0));
+                return_code = match self.stack_pop()  {
+                    Ok(val) => Some(val),
+                    Err(_) => None,
+                };
             }
         }
 
