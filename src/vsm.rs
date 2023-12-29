@@ -1,4 +1,4 @@
-use std::{io};
+use std::io;
 use std::io::{BufRead, Read};
 use crate::code::{Code, Instruction, OperationCode};
 
@@ -171,7 +171,60 @@ impl Vsm {
         }        
     }
 
-
+    fn perform_operation<F>(&mut self, operation_fn: F) -> Result<(), String>
+    where
+        F: Fn(i32, i32) -> i32,
+    {
+        let top_value = self.stack_read(self.stack_pointer)?;
+        self.stack_pointer_decrement()?;
+        let bottom_value = self.stack_read(self.stack_pointer)?;
+        let result = operation_fn(bottom_value, top_value);
+        self.stack_write(self.stack_pointer, result)?;
+        Ok(())
+    }    
+    fn add_fn(a: i32, b: i32) -> i32 {
+        a + b
+    }
+    
+    fn sub_fn(a: i32, b: i32) -> i32 {
+        a - b
+    }
+    
+    fn mul_fn(a: i32, b: i32) -> i32 {
+        a * b
+    }
+    
+    fn div_fn(a: i32, b: i32) -> i32 {
+        a / b
+    }
+    
+    fn mod_fn(a: i32, b: i32) -> i32 {
+        a % b
+    }
+    
+    fn eq_fn(a: i32, b: i32) -> i32 {
+        (a == b) as i32
+    }
+    
+    fn ne_fn(a: i32, b: i32) -> i32 {
+        (a != b) as i32
+    }
+    
+    fn gt_fn(a: i32, b: i32) -> i32 {
+        (a > b) as i32
+    }
+    
+    fn lt_fn(a: i32, b: i32) -> i32 {
+        (a < b) as i32
+    }
+    
+    fn ge_fn(a: i32, b: i32) -> i32 {
+        (a >= b) as i32
+    }
+    
+    fn le_fn(a: i32, b: i32) -> i32 {
+        (a <= b) as i32
+    }
     fn exec_instruction(&mut self, instruction : Instruction) -> Result<Option<i32>, String> {
         let mut return_code : Option<i32> = None;
 
@@ -288,116 +341,66 @@ impl Vsm {
                 self.program_counter = program_counter_value as usize;
             },
 
-            OperationCode::Getc => {
-                let stdin = io::stdin();
-                let mut buffer = [0; 1];
-                stdin.lock().read_exact(&mut buffer).unwrap();
-
-                let input_char = buffer[0] as char;
-
-                self.stack_pointer_increment();
-                self.stack_write(self.stack_pointer, input_char as i32)?;
-            },
-            OperationCode::Geti => {
+            OperationCode::Getc | OperationCode::Geti => {
                 let stdin = io::stdin();
                 let mut buffer = String::new();
                 stdin.lock().read_line(&mut buffer).unwrap();
-                let input_number = buffer.trim().parse::<i32>();
 
-                match input_number {
-                    Ok(number) => {
-                        self.stack_pointer_increment();
-                        self.stack_write(self.stack_pointer, number)?;
+                self.stack_pointer_increment();
+                match instruction.operation_code {
+                    OperationCode::Getc=> {
+                        let buffer_trim = buffer.trim();
+                        if buffer_trim.len() != 1 {
+                            return Err(format!("error getc input is one character inputcharacter='{}'", buffer_trim));
+                        }
+                        match buffer.chars().next() {
+                            Some(input_char) => self.stack_write(self.stack_pointer, input_char as i32)?,
+                            None => return Err(format!("error getc input is one character inputcharacter='{}'", buffer_trim)),
+                        }
                     }
-                    Err(err) => return Err(err.to_string())
-                }
-            },
-            OperationCode::Putc => {
+                    OperationCode::Geti =>{
+                        let input_number = buffer.trim().parse::<i32>();
+                        match input_number {
+                            Ok(number) => {
+                                self.stack_write(self.stack_pointer, number)?;
+                            }
+                            Err(err) => return Err(err.to_string())
+                        }
+                    }
+                    _ => {}
+                };
+
+            }
+            OperationCode::Putc | OperationCode::Puti => {
                 let value =  self.stack_read(self.stack_pointer)?;
                 self.stack_pointer_decrement()?;
-                print!("{}", std::char::from_u32(value as u32).unwrap());
-            },
-            OperationCode::Puti => {
-                let value =  self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;                
-                print!("{}", value);
-            },
-            OperationCode::Add => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, bottom_value+top_value)?;                
-            },
 
-            OperationCode::Sub => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, bottom_value-top_value)?;     
+                let print_str = match instruction.operation_code {
+                    OperationCode::Putc => std::char::from_u32(value as u32).unwrap().to_string(),
+                    OperationCode::Puti => value.to_string(),
+                    _ => {"".to_string()},
+                };
+                print!("{}", print_str);
             },
-            OperationCode::Mul => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, bottom_value*top_value)?;   
-            },
-
-            OperationCode::Div => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, bottom_value/top_value)?;   
-            },
-            OperationCode::Mod => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, bottom_value%top_value)?;   
-            },
+            OperationCode::Add => self.perform_operation(Vsm::add_fn)?,
+            OperationCode::Sub => self.perform_operation(Vsm::sub_fn)?,
+            OperationCode::Mul => self.perform_operation(Vsm::mul_fn)?,
+            OperationCode::Div => self.perform_operation(Vsm::div_fn)?,
+            OperationCode::Mod => self.perform_operation(Vsm::mod_fn)?,
             OperationCode::Inv => {
                 let value = - self.stack_read(self.stack_pointer)?;
                 self.stack_write(self.stack_pointer, value)?;
             },
-            OperationCode::Eq => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, (bottom_value==top_value) as i32)?;                  
-            },
-            OperationCode::Ne => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, (bottom_value!=top_value) as i32)?;                    
-            },
-            OperationCode::Gt => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, (bottom_value>top_value) as i32)?;                 
-            },
-            OperationCode::Lt => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, (bottom_value<top_value) as i32)?;               
-            },
-            OperationCode::Ge => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, (bottom_value>=top_value) as i32)?;                         
-            },            
-            OperationCode::Le => {
-                let top_value = self.stack_read(self.stack_pointer)?;
-                self.stack_pointer_decrement()?;
-                let bottom_value  = self.stack_read(self.stack_pointer)?;
-                self.stack_write(self.stack_pointer, (bottom_value<=top_value) as i32)?;                 
-            },  
+            OperationCode::Eq => self.perform_operation(Vsm::eq_fn)?,
+            OperationCode::Ne => self.perform_operation(Vsm::ne_fn)?,
+            OperationCode::Gt => self.perform_operation(Vsm::gt_fn)?,
+            OperationCode::Lt => self.perform_operation(Vsm::lt_fn)?,
+            OperationCode::Ge => self.perform_operation(Vsm::ge_fn)?,          
+            OperationCode::Le => self.perform_operation(Vsm::le_fn)?,
             OperationCode::Exit => {
                 return_code = match self.stack_read(self.stack_pointer) {
                     Ok(value) => Some(value),
-                    Err(_) => None,
+                    Err(_) => Some(1),
                 };
             }
         }

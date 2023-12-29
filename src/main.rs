@@ -1,4 +1,3 @@
-use std::io;
 use virtual_stack_machine::vsm::*;
 use std::env;
 
@@ -21,8 +20,5 @@ fn main() {
     let mut vsm = Vsm::new(trace_type);
 
     vsm.read_code(vsm_file).expect(&format!("File cannot be read filepath='{}'", vsm_file));
-
     vsm.exec_code().expect(&format!("Runtime error filepath='{}'", vsm_file));
-
-    
 }
