@@ -1,18 +1,12 @@
+mod common;
+
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::fs::File;
-    use std::io::{self, Write};
-    use std::path::Path;
+
     use virtual_stack_machine::code::Code;
 
-    fn write_to_file_for_test(file_path: &str, content: &str) -> io::Result<()> {
-        let path = Path::new(file_path);
-        let mut file = File::create(path)?;
-
-        file.write_all(content.as_bytes())?;
-        Ok(())
-    }
+    use crate::common::write_to_file_for_test;
 
     #[test]
     fn test_read_code_ok() {
