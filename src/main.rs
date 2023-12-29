@@ -1,8 +1,8 @@
 use std::io;
-use virtual_stack_machine::vsm::{*, self};
+use virtual_stack_machine::vsm::*;
 use std::env;
 
-fn main() -> io::Result<()> {
+fn main() {
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 1 {
@@ -20,8 +20,9 @@ fn main() -> io::Result<()> {
 
     let mut vsm = Vsm::new(trace_type);
 
-    vsm.read_code(vsm_file).unwrap();
+    vsm.read_code(vsm_file).expect(&format!("File cannot be read filepath='{}'", vsm_file));
 
-    vsm.exec_code().unwrap();
-    Ok(())
+    vsm.exec_code().expect(&format!("Runtime error filepath='{}'", vsm_file));
+
+    
 }
