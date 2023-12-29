@@ -1,5 +1,5 @@
 use std::io;
-use std::io::{BufRead, Read};
+use std::io::BufRead;
 use crate::code::{Code, Instruction, OperationCode};
 
 #[derive(PartialEq)]
@@ -67,7 +67,7 @@ impl Vsm {
                 _ => "      ",
             };
 
-            println!("{} Stack[{: >3}] {: >4}{}{}", sp, index, *value, b0, b1);
+            println!("{} S[{: >3}] {: >4}{}{}", sp, index, *value, b0, b1);
         });
 
         println!("\n");
@@ -247,20 +247,22 @@ impl Vsm {
                     };                    
                 }
             },
-            OperationCode::La => {
-                self.stack_pointer_increment();
-                let base_register =  self.base_register_read(operand1)?;
-                let value  = operand2 + base_register as i32;
-                self.stack_write(self.stack_pointer, value)?;
-            },
 
-            OperationCode::Lv => {
+            OperationCode::La | OperationCode::Lv => {
                 self.stack_pointer_increment();
                 let base_register =  self.base_register_read(operand1)?;
-                let address  = operand2 as usize + base_register;
-                let value = self.stack_read(Some(address))?;
-                self.stack_write(self.stack_pointer, value)?;
-            }
+                let address  = operand2 + base_register as i32;
+                match instruction.operation_code {
+                    OperationCode::La => {
+                        self.stack_write(self.stack_pointer, address)?;
+                    },
+                    OperationCode::Lv => {
+                        let value = self.stack_read(Some(address as usize))?;
+                        self.stack_write(self.stack_pointer, value)?;
+                    }
+                    _ => {}
+                }
+            },
             OperationCode::Lc => {
                 self.stack_pointer_increment();
                 self.stack_write(self.stack_pointer, operand1)?;
@@ -300,18 +302,26 @@ impl Vsm {
                         return Err(format!("invalid instruction '{}'", instruction.to_string()));
                     }
                 }
+                self.stack_pointer_decrement()?;
+            },
+            OperationCode::B | OperationCode::Bz => {
+                let perform_b_operation = |program_counter: &mut usize, operand1: i32| {
+                    *program_counter = ((*program_counter as i32) + operand1) as usize;
+                };
 
-                self.stack_pointer_decrement()?;
-            },
-            OperationCode::B => {
-                self.program_counter = ((self.program_counter as i32) + operand1) as usize;
-            },
-            OperationCode::Bz => {
-                let value = self.stack_read(self.stack_pointer)?;
-                if value == 0 {
-                    self.program_counter = ((self.program_counter as i32) + operand1) as usize;
+                match instruction.operation_code {
+                    OperationCode::B => {
+                        perform_b_operation(&mut self.program_counter, operand1);
+                    },
+                    OperationCode::Bz => {
+                        let value = self.stack_read(self.stack_pointer)?;
+                        if value == 0 {
+                            perform_b_operation(&mut self.program_counter, operand1);
+                        }
+                        self.stack_pointer_decrement()?;
+                    },
+                    _ => {}
                 }
-                self.stack_pointer_decrement()?;
             },
             OperationCode::Call => {
                 let stack_pointer = match self.stack_pointer {
